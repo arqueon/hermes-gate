@@ -257,6 +257,13 @@ class HermesGateApp(App):
             except Exception:
                 pass
 
+    def _focus_list(self, selector: str) -> None:
+        """Focus a list after Textual has committed a dynamically mounted tree."""
+        try:
+            self.query_one(selector, ListView).focus()
+        except Exception:
+            pass
+
     def _show_server_select(self) -> None:
         self._phase = "select"
         self._stop_auto_refresh()
@@ -280,7 +287,7 @@ class HermesGateApp(App):
                 id="server-screen",
             )
         )
-        self.query_one("#server-list", ListView).focus()
+        self.call_after_refresh(self._focus_list, "#server-list")
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if self._phase == "select":
@@ -431,7 +438,14 @@ class HermesGateApp(App):
             user,
             host,
             port,
-            "bash -l -c 'command -v hermes >/dev/null && hermes --version >/dev/null'",
+            "bash -l -c '"
+            "if command -v hermes >/dev/null 2>&1; then "
+            "hermes --version >/dev/null; "
+            "elif [ -x \"$HOME/.local/bin/hermes\" ]; then "
+            "\"$HOME/.local/bin/hermes\" --version >/dev/null; "
+            "elif [ -x \"$HOME/.hermes/hermes-agent/venv/bin/hermes\" ]; then "
+            "\"$HOME/.hermes/hermes-agent/venv/bin/hermes\" --version >/dev/null; "
+            "else exit 1; fi'",
             ssh_alias,
         )
 
@@ -511,7 +525,7 @@ class HermesGateApp(App):
         )
         self._refresh_sessions()
         self._start_auto_refresh()
-        self.query_one("#session-list", ListView).focus()
+        self.call_after_refresh(self._focus_list, "#session-list")
 
     def _on_session_selected(self, event: ListView.Selected) -> None:
         idx = event.list_view.index
