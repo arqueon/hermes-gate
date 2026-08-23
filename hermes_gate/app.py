@@ -384,8 +384,11 @@ class HermesGateApp(App):
         self.push_screen(scr)
 
         async def _do():
-            scr.update_msg(f"🔍 Testing SSH connection to {name} ...")
-            if not await self._ssh_ok(user, host, port, ssh_alias):
+            scr.update_msg(f"🔍 Checking {name} ...")
+            ssh_ok, tmux_ok, hermes_ok = await self._server_capabilities(
+                user, host, port, ssh_alias
+            )
+            if not ssh_ok:
                 self.pop_screen()
                 self._hint(
                     "server-hint",
@@ -394,15 +397,11 @@ class HermesGateApp(App):
                     else f"Cannot connect to {name}",
                 )
                 return
-            scr.update_msg(f"🔍 Checking tmux on {name} ...")
-            if not await self._remote_command_ok(
-                user, host, port, "bash -l -c 'command -v tmux >/dev/null'", ssh_alias
-            ):
+            if not tmux_ok:
                 self.pop_screen()
                 self._hint("server-hint", "Please install tmux on the server")
                 return
-            scr.update_msg(f"🔍 Checking hermes on {name} ...")
-            if not await self._hermes_ok(user, host, port, ssh_alias):
+            if not hermes_ok:
                 self.pop_screen()
                 self._hint("server-hint", "Please install hermes on the server")
                 return
@@ -413,6 +412,33 @@ class HermesGateApp(App):
             self._show_session_list(user, host, port, ssh_alias)
 
         self.run_worker(_do(), exclusive=True)
+
+    async def _server_capabilities(
+        self, user: str, host: str, port: str = "22", ssh_alias: str | None = None
+    ) -> tuple[bool, bool, bool]:
+        """Check SSH, tmux, and Hermes with one lightweight remote command."""
+        try:
+            mgr = SessionManager(user, host, port, ssh_alias=ssh_alias)
+            remote_command = (
+                "command -v tmux >/dev/null 2>&1 && printf 'tmux\\n'; "
+                "if command -v hermes >/dev/null 2>&1 "
+                "|| [ -x \"$HOME/.local/bin/hermes\" ] "
+                "|| [ -x \"$HOME/.hermes/hermes-agent/venv/bin/hermes\" ]; then "
+                "printf 'hermes\\n'; fi"
+            )
+            p = await asyncio.create_subprocess_exec(
+                *mgr.ssh_base_args(timeout=8),
+                remote_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            out, _ = await asyncio.wait_for(p.communicate(), timeout=15)
+            if p.returncode != 0:
+                return False, False, False
+            capabilities = set(out.decode(errors="replace").splitlines())
+            return True, "tmux" in capabilities, "hermes" in capabilities
+        except Exception:
+            return False, False, False
 
     async def _ssh_ok(
         self, user: str, host: str, port: str = "22", ssh_alias: str | None = None

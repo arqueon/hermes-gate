@@ -91,10 +91,16 @@ class SessionManager:
     # ─── SSH Low-level ─────────────────────────────────────────────
 
     def _ssh_options(self, timeout: int = 10) -> list[str]:
+        control_dir = _config_dir() / "ssh"
+        control_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        control_dir.chmod(0o700)
         opts = [
             "-o", "BatchMode=yes",
             "-o", "StrictHostKeyChecking=accept-new",
             "-o", f"ConnectTimeout={timeout}",
+            "-o", "ControlMaster=auto",
+            "-o", "ControlPersist=300",
+            "-o", f"ControlPath={control_dir}/%C",
         ]
         if self.ssh_alias:
             ssh_config = ssh_config_path()
