@@ -881,6 +881,8 @@ class HermesGateApp(App):
             f"tmux bind-key -T root C-b detach-client",
             # Enable mouse support and make wheel scroll pane history when not already handling mouse events.
             f"tmux set-option -t {q(name)} mouse on",
+            f"tmux set-option -s set-clipboard on",
+            f"tmux set-option -g allow-passthrough on",
             f"tmux bind-key -T root WheelUpPane if-shell -F '#{{mouse_any_flag}}' 'send-keys -M' 'copy-mode -e'",
             f"tmux bind-key -T root WheelDownPane if-shell -F '#{{mouse_any_flag}}' 'send-keys -M' 'send-keys -X scroll-down'",
             f"tmux bind-key -T copy-mode-vi WheelUpPane send-keys -X scroll-up",

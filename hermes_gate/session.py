@@ -127,7 +127,7 @@ class SessionManager:
     @staticmethod
     def tmux_command(*args: str, suppress_stderr: bool = False) -> str:
         """Build a tmux command string for the remote login shell."""
-        command = shlex.join(["tmux", *[str(arg) for arg in args]])
+        command = shlex.join(["tmux", "-u", *[str(arg) for arg in args]])
         if suppress_stderr:
             command = f"{command} 2>/dev/null"
         return SessionManager.login_shell_command(command)
@@ -346,7 +346,7 @@ class SessionManager:
         cmd = ["ssh", "-t"]
         cmd.extend(self._ssh_options())
         cmd.extend(self._ssh_destination())
-        cmd.append(f"tmux attach -d -t {name}")
+        cmd.append(f"LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 tmux -u attach -d -t {name}")
         return cmd
 
     # ─── Completion Signal Detection ────────────────────────────────
